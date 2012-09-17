@@ -1,0 +1,36 @@
+_ete_pystickies() 
+{
+    oIFS=$IFS
+    local cur prev opts base
+    COMPREPLY=()
+    cur="${COMP_WORDS[COMP_CWORD]}"
+    prev="${COMP_WORDS[COMP_CWORD-1]}"
+
+    #
+    #  The basic options we'll complete.
+    #
+    opts="-l --listen -f --friends -h --help --version"
+
+    #
+    #  Complete the arguments to some of the basic commands.
+    #
+    case "${cur}" in
+    -*)
+        unset IFS
+        COMPREPLY=( $(compgen -W "${opts}" -- ${cur}) )  
+        #IFS=$oIFS
+        return 0
+        ;;
+	*)
+        local IFS=$(echo -en "\n\b")
+	    local friends=$(awk 'BEGIN {FS="|"}; {if ($2 == '0') print $3};' ~/.ete_pystickies/friends | awk 'BEGIN {FS="="}; {print $1};')
+	    COMPREPLY=( $(compgen -W "${friends}" -- ${cur}) )
+        #IFS=$oIFS
+            return 0
+            ;;
+    esac
+    COMPREPLY=( $(compgen -W "${opts}" -- ${cur}) )  
+    #IFS=$oIFS
+   return 0
+}
+complete -F _ete_pystickies ete_pystickies

@@ -1,0 +1,13 @@
+# vim: set ft=yaml: " to tell vim is a yaml file"
+
+myname: $USER
+signit: True
+host: '' 
+port: 52673  
+serverip: <SERVERIP>
+serverport: 52673
+rtf: False
+cmd: $EDITOR
+width: 250
+height: 200
+col: 255,255,180
