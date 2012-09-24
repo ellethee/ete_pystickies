@@ -21,18 +21,18 @@
 
 NAME=ete_pystickies
 CONFIG=$NAME.cfg
-WORKING_DIR=`pwd`
+WORKING_DIR="$HOME/.ete_pystickies"
 # Read configuration variable file if it is present
 [ -r $WORKING_DIR/$CONFIG ] && . $WORKING_DIR/$CONFIG
 DESC="EtePyStikies Daemon."
-DAEMON="$WORKING_DIR/$NAME.py"
+DAEMON="$HOME/bin/$NAME"
 RUNAS=$USER
 VERBOSE=yes
 LOGGING=debug
 PIDFILE="/tmp/$NAME.pid"
 DAEMON_ARGS="--listen --daemon"
-
 SCRIPTNAME=$NAME
+
 # Exit if the package is not installed
 [ -x "$DAEMON" ] || exit 0
 

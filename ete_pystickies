@@ -359,7 +359,7 @@ class Sticky(object):
 
 
 class StickiesListener(object):
-    """)
+    """
         Listener
     """
     def __init__(self, cfg):
