@@ -14,6 +14,24 @@ __version__ = "1.1.3"
 __date__ = "2012-06-13"
 
 
+# some python3 hacks
+try:
+    unicode = unicode
+except NameError:
+    ISP3 = True
+    # 'unicode' is undefined, must be Python 3
+    # str = str
+    # unicode = str
+    # bytes = bytes
+    basestring = (str, bytes)
+else:
+    ISP3 = False
+    # 'unicode' exists, must be Python 2
+    # str = str
+    # unicode = unicode
+    # bytes = str
+    basestring = basestring
+
 import os
 import sys
 from os.path import join
@@ -33,19 +51,24 @@ from datetime import datetime
 from optparse import OptionParser
 
 STD_PORT = 52673
-rec = re.compile(r'^(\w+)=(.*)', re.MULTILINE)
+REC = re.compile(r'^(\w+)=(.*)', re.MULTILINE)
+RE_GETIP = '^(?P<id1>\d)\|(?P<id2>0)\|(?P<name>{})=' \
+    '(?P<ip>.*)\|(?P<port>\d*)\|$'
+RE_GETNAME = r'^(?P<id1>\d)\|(?P<id2>0)\|(?P<name>.*)=' \
+    r'(?P<ip>{})\|(?P<port>\d*)\|$'
 
 
 def get_name(address, filename):
     """
     Retrieve info by address.
     """
-    rawstr = (r'^(?P<id1>\d)\|(?P<id2>0)\|(?P<name>.*)='
-              r'(?P<ip>%s)\|(?P<port>\d*)\|$' % address)
+    rawstr = RE_GETNAME.format(address)
+    if ISP3:
+        rawstr = bytes(rawstr, 'utf-8')
     match_obj = re.search(rawstr, open(filename, "rb").read(), re.MULTILINE)
     if match_obj:
         try:
-            print (", ".join(match_obj.groups()))
+            print (match_obj.group('name'), match_obj.group('ip'))
             return [match_obj.group('name'),
                     match_obj.group('ip'), match_obj.group('port')]
         except Exception as error:
@@ -63,12 +86,13 @@ def get_ip(nome, filename):
     """
     Retrieve info by name
     """
-    rawstr = (r'^(?P<id1>\d)\|(?P<id2>0)\|(?P<name>%s)='
-              r'(?P<ip>.*)\|(?P<port>\d*)\|$' % nome)
+    rawstr = RE_GETIP.format(nome)
+    if ISP3:
+        rawstr = bytes(rawstr, 'utf-8')
     match_obj = re.search(rawstr, open(filename, "rb").read(), re.MULTILINE)
     if match_obj:
         try:
-            print (", ".join(match_obj.groups()))
+            print (match_obj.group('name'), match_obj.group('ip'))
             return [socket.gethostbyname(match_obj.group('ip')),
                     match_obj.group('name'), match_obj.group('port')]
         except Exception as error:
@@ -243,7 +267,7 @@ class Sticky(object):
         if self.command == 'sticky':
             # It's a Sticky, let's take all the properties and then open
             # the Sticky.
-            lst = rec.findall(self.data)
+            lst = REC.findall(self.data)
             self.sequenza = [l[0] for l in lst]
             self.sticky = EteDumbObj(lst)
             self.action = self.open
@@ -282,18 +306,21 @@ class Sticky(object):
             data += "%s=%s\n" % (key, self.sticky[key])
         data = '#sticky ' + data
         # Add data length to the beginning.
-        data = "\xff" + struct.pack('H', len(data)) + data
+        if ISP3:
+            data = b"\xff" + struct.pack('H', len(data)) + bytes(data, 'utf-8')
+        else:
+            data = "\xff" + struct.pack('H', len(data)) + data
+
         if self.cfg.debug:
             self.cfg.logfile.write(data)
         # Ok and now is time to send.
-        s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+        sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
         try:
-            s.connect((self.addr[0], port))
-            s.send(data)
-            s.close()
-        except Exception as xxx_todo_changeme1:
-            (errn, mess) = xxx_todo_changeme1.args
-            print ("I can't send the message: %s" % mess)
+            sock.connect((self.addr[0], port))
+            sock.send(data)
+            sock.close()
+        except Exception as error:
+            print ("I can't send the message: %s" % error.args[1])
 
     def ask_for_friends(self):
         """
@@ -342,8 +369,12 @@ class Sticky(object):
         # I'm not so sure if is this the right replacment.
         fcontent = fcontent.replace(r'^M', '\n')
         with open(fname, 'wb') as fobj:
-            fobj.write(fcontent)
-        kcheck = binascii.crc32(open(fname).read())
+            if ISP3:
+                fobj.write(bytes(fcontent, "utf-8"))
+                kcheck = binascii.crc32(bytes(open(fname).read(), 'utf-8'))
+            else:
+                fobj.write(fcontent)
+                kcheck = binascii.crc32(open(fname).read())
         check_output("%s %s" % (self.cfg.cmd, fname))
         if binascii.crc32(open(fname, 'rb').read()) != kcheck:
             self.send(fname)
