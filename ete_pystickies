@@ -9,9 +9,9 @@
     (http://www.gnu.org/licenses/gpl-2.0.html)
 """
 __file_name__ = "ete_pystickies.py"
-__author__ =    "Luca Zaccaria <luca.vs800@hotmail.it>"
-__version__ =   "1.1.3"
-__date__ =      "2012-06-13"
+__author__ = "Luca Zaccaria <luca.vs800@hotmail.it>"
+__version__ = "1.1.3"
+__date__ = "2012-06-13"
 
 
 import os
@@ -21,7 +21,7 @@ import socket
 import binascii
 import re
 import struct
-from tempfile import NamedTemporaryFile
+# from tempfile import NamedTemporaryFile
 import threading
 import signal
 from subprocess import call
@@ -29,57 +29,64 @@ import daemon
 import subprocess
 import shlex
 import yaml
-
+from datetime import datetime
 from optparse import OptionParser
 
-
 STD_PORT = 52673
-rec = re.compile(r'^(\w+)=(.*)',  re.MULTILINE)
+rec = re.compile(r'^(\w+)=(.*)', re.MULTILINE)
+
 
 def get_name(address, filename):
     """
     Retrieve info by address.
     """
-    rawstr = r'^(?P<id1>\d)\|(?P<id2>0)\|(?P<name>.*)=(?P<ip>%s)\|(?P<port>\d*)\|$' % address
-    match_obj = re.search(rawstr, open(filename, "rb").read(),  re.MULTILINE)
+    rawstr = (r'^(?P<id1>\d)\|(?P<id2>0)\|(?P<name>.*)='
+              r'(?P<ip>%s)\|(?P<port>\d*)\|$' % address)
+    match_obj = re.search(rawstr, open(filename, "rb").read(), re.MULTILINE)
     if match_obj:
         try:
-            print match_obj.groups()
-            return [match_obj.group('name'), 
+            print (", ".join(match_obj.groups()))
+            return [match_obj.group('name'),
                     match_obj.group('ip'), match_obj.group('port')]
-        except Exception as e:
-            print e
+        except Exception as error:
+            print (error)
             return None
     else:
         try:
             return [socket.gethostbyaddr(address), address, None]
-        except Exception as e:
-            print e
+        except Exception as error:
+            print (error)
             return None
+
 
 def get_ip(nome, filename):
     """
     Retrieve info by name
     """
-    rawstr = r'^(?P<id1>\d)\|(?P<id2>0)\|(?P<name>%s)=(?P<ip>.*)\|(?P<port>\d*)\|$' % nome
-    match_obj = re.search(rawstr, open(filename, "rb").read(),  re.MULTILINE)
+    rawstr = (r'^(?P<id1>\d)\|(?P<id2>0)\|(?P<name>%s)='
+              r'(?P<ip>.*)\|(?P<port>\d*)\|$' % nome)
+    match_obj = re.search(rawstr, open(filename, "rb").read(), re.MULTILINE)
     if match_obj:
         try:
-            print match_obj.groups()
-            return [socket.gethostbyname(match_obj.group('ip')), 
+            print (", ".join(match_obj.groups()))
+            return [socket.gethostbyname(match_obj.group('ip')),
                     match_obj.group('name'), match_obj.group('port')]
-        except Exception as e:
-            print e
+        except Exception as error:
+            print (error)
             return None
     else:
         try:
             return [socket.gethostbyname(nome), nome, None]
-        except Exception as e:
-            print e
+        except Exception as error:
+            print (error)
             return None
 
 #: custom exception to handle SIGTERM when needed
-class StickyCloseError(Exception):pass
+
+
+class StickyCloseError(Exception):
+    pass
+
 
 def check_output(command):
     """
@@ -87,13 +94,15 @@ def check_output(command):
     """
     if isinstance(command, basestring):
         command = shlex.split(command)
-    p = subprocess.Popen(command, stdout=subprocess.PIPE, 
-            stderr=subprocess.PIPE)
+    p = subprocess.Popen(command, stdout=subprocess.PIPE,
+                         stderr=subprocess.PIPE)
     out, err = p.communicate()
     return out
 
+
 class EteDumbObj(dict):
     """ Dumb class to use a dictionary as an object.  """
+
     def __init__(self, *args, **kwargs):
         dict.__init__(self, *args, **kwargs)
 
@@ -118,10 +127,12 @@ class EteDumbObj(dict):
     def __getstate__(self):
         return dict(self.items())
 
+
 class Config(EteDumbObj):
     """
         Silly configuration from yaml
     """
+
     def __init__(self, *args, **kwargs):
         self.__dict__['_filename'] = None
         if len(args) == 1 and isinstance(args[0], basestring):
@@ -156,8 +167,8 @@ class Config(EteDumbObj):
         Save the config
         """
         filename = filename or self._filename
-        with open(filename, 'wb') as f:
-            f.write(yaml.dump(dict(self.items()), default_flow_style=False))
+        with open(filename, 'wb') as fobj:
+            fobj.write(yaml.dump(dict(self.items()), default_flow_style=False))
 
     def optset(self, options, force=False):
         """
@@ -166,14 +177,16 @@ class Config(EteDumbObj):
         significant.
         """
         for key, value in options.items():
-            if  not force:
+            if not force:
                 value = value or getattr(self, key, None)
             setattr(self, key, value)
 
+
 class Sticky(object):
     """
-       The Stickie handler. 
+       The Stickie handler.
     """
+
     def __init__(self, parent, connection, address, cfg):
         self.parent = parent
         self.conn = connection
@@ -183,9 +196,8 @@ class Sticky(object):
         self.closed = False
         self.sticky = EteDumbObj()
         self.sequenza = ['W', 'COL', 'TEXT', 'RTF', 'TO', 'PORT', 'HEIGHT']
-        if self.conn != None:
+        if self.conn is not None:
             self.receive()
-
 
     def receive(self):
         """
@@ -193,36 +205,33 @@ class Sticky(object):
         """
         while True:
             data = self.conn.recv(1024)
-            if not data: break
+            if not data:
+                break
             self.data += data
-            if self.cfg.debug: self.cfg.logfile.write(data)
+            if self.cfg.debug:
+                self.cfg.logfile.write(data)
         """
         Gets some information.
         """
-        self.length, self.command, self.data = \
-                re.split(r'#(\w+)\s', self.data, maxsplit=1)
-        """
-        Retreive more informations.
-        """
+        self.length, self.command, self.data = re.split(
+            r'#(\w+)\s', self.data, maxsplit=1)
+        # Retreive more informations.
         self.data_from_command()
         self.sticky.PORT = self.sticky.PORT or STD_PORT
         name = get_name(self.addr[0], self.cfg.friendsfile)
-        if name == None:
+        if name is None:
             name = self.addr[0]
         else:
             name = name[0]
-        """
-        Let's try to advise the user via notify-send.
-        """
+        self.cfg.dest_name = name
+        # Let's try to advise the user via notify-send.
         try:
-            call(["notify-send","-u", "normal", 
-                "EtePyStickies: message from %s\n" % name, 
-                self.sticky.TEXT.replace('\r', '')[:50]])
+            call(["notify-send", "-u", "normal",
+                  "EtePyStickies: message from %s\n" % name,
+                  self.sticky.TEXT.replace('\r', '')[:50]])
         except:
             pass
-        """
-        And call the action if there is one.
-        """
+        # And call the action if there is one.
         if self.action:
             self.action()
 
@@ -232,23 +241,17 @@ class Sticky(object):
         """
         self.action = None
         if self.command == 'sticky':
-            """
-            It's a Sticky, let's take all the properties and then open
-            the Sticky.
-            """
+            # It's a Sticky, let's take all the properties and then open
+            # the Sticky.
             lst = rec.findall(self.data)
             self.sequenza = [l[0] for l in lst]
             self.sticky = EteDumbObj(lst)
             self.action = self.open
         elif self.command == 'send':
-            """
-            TODO: i have to implement this.
-            """
+            # TODO: i have to implement this.
             pass
         elif self.command == '3friends':
-            """
-            Seems someone is sending a Friends list. let's save it.
-            """
+            # Seems someone is sending a Friends list. let's save it.
             with open(self.cfg.friendsfile, 'wb') as f:
                 f.write(self.data)
 
@@ -257,52 +260,40 @@ class Sticky(object):
         Sends the Sticky.
         """
         with open(filename) as f:
-            """
-            let's make some conversion... but i'm still confused.
-            """
+            # let's make some conversion... but i'm still confused.
             s = f.read()
             if self.cfg.signit:
-                """
-                Signature if is needed.
-                """
+                # Signature if is needed.
                 s += "\n%s." % self.cfg.myname
             if self.cfg.rtf:
                 self.sticky.RTF = f.read().replace('\n', '\r')
             else:
                 self.sticky.RTF = r'{\rtf1'
-                self.sticky.RTF += s.replace("\n", "\\par\r") +  "}"
+                self.sticky.RTF += s.replace("\n", "\\par\r") + "}"
                 self.sticky.TEXT = s.replace('\n', '\r')
         data = ''
-        """
-        ok we will take the port where to send.
-        """
+        # ok we will take the port where to send.
         port = int(self.sticky.PORT)
-        """
-        And set the port where to send back.
-        """
+        # And set the port where to send back.
         self.sticky.PORT = self.cfg.port
-        """
-        Ok fill the data string with rights thing according with the original 
-        sequence.
-        """
+        # Ok fill the data string with rights thing according with the original
+        # sequence.
         for key in self.sequenza:
             data += "%s=%s\n" % (key, self.sticky[key])
         data = '#sticky ' + data
-        """
-        Add data length to the beginning.
-        """
+        # Add data length to the beginning.
         data = "\xff" + struct.pack('H', len(data)) + data
-        if self.cfg.debug: self.cfg.logfile.write(data)
-        """
-        Ok and now is time to send.
-        """
+        if self.cfg.debug:
+            self.cfg.logfile.write(data)
+        # Ok and now is time to send.
         s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
         try:
             s.connect((self.addr[0], port))
             s.send(data)
             s.close()
-        except Exception as (errn, mess):
-            print "I can't send the message: %s" % mess
+        except Exception as xxx_todo_changeme1:
+            (errn, mess) = xxx_todo_changeme1.args
+            print ("I can't send the message: %s" % mess)
 
     def ask_for_friends(self):
         """
@@ -312,13 +303,14 @@ class Sticky(object):
         data = "\xff" + struct.pack('H', len(data)) + data
         s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
         try:
-            serverip = get_ip(self.cfg.serverip)
-            s.connect((serverip, self.cfg.serverport))
+            # serverip = get_ip(self.cfg.serverip, self.cfg.friendsfile)
+            # import ipdb; ipdb.set_trace()
+            s.connect((self.cfg.serverip, self.cfg.serverport))
             s.send(data)
             s.close()
-        except:
-            print "Cannot connect to the serever."
-        
+        except Exception as error:
+            print ("Cannot connect to the serever. %s" % str(error))
+
     def new(self):
         """
         Prepare for the new message.
@@ -331,28 +323,31 @@ class Sticky(object):
         self.sticky.COL = self.cfg.col or "255,255,180"
         self.sticky.PORT = self.addr[2] or self.cfg.port
         self.open()
-        
+
     def open(self):
         """
         Open the temporary file and send it if there are some changes.
         """
-        f = NamedTemporaryFile(delete=False)
-        fname = f.name
+        date = datetime.now()
+        fname = date.strftime("%Y%m%d-%H%M%S-" + cfg.dest_name.replace(
+            ' ', '-') + ".txt")
+        fname = os.path.join(cfg.home, fname)
+        # f = open()
+        # f = NamedTemporaryFile(delete=False)
+        # fname = f.name
         if self.cfg.rtf:
             fcontent = self.sticky.RTF
         else:
             fcontent = self.sticky.TEXT
-        """
-        I'm not so sure if is this the right replacment.
-        """
+        # I'm not so sure if is this the right replacment.
         fcontent = fcontent.replace(r'^M', '\n')
-        f.write(fcontent)
-        f.close()
+        with open(fname, 'wb') as fobj:
+            fobj.write(fcontent)
         kcheck = binascii.crc32(open(fname).read())
         check_output("%s %s" % (self.cfg.cmd, fname))
         if binascii.crc32(open(fname, 'rb').read()) != kcheck:
             self.send(fname)
-        os.unlink(fname)
+        # os.unlink(fname)
         if self.conn:
             self.conn.close()
         self.closed = True
@@ -360,8 +355,9 @@ class Sticky(object):
 
 class StickiesListener(object):
     """
-        Listener
+    Listener
     """
+
     def __init__(self, cfg):
         self.cfg = cfg
         self.socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
@@ -377,9 +373,9 @@ class StickiesListener(object):
         """
         count = threading.active_count()
         if count > 1:
-            call(["notify-send","-u", "critical", "Ete PyStickies",
-                "Non posso uscire ci sono ancora %s messaggi aperti." % \
-                        (count - 1)])
+            call(["notify-send", "-u", "critical", "Ete PyStickies",
+                  "Non posso uscire ci sono ancora %s messaggi aperti." %
+                  (count - 1)])
             raise StickyCloseError
 
     def listen(self):
@@ -390,50 +386,61 @@ class StickiesListener(object):
         while True:
             try:
                 conn, addr = self.socket.accept()
-                print "Connessione da %s" % str(addr)
+                print ("Connectino from %s" % str(addr))
                 self.cfg.logfile.flush()
-                t = threading.Thread(target=Sticky, 
-                        args=(self, conn, addr, self.cfg))
-                lista.append(t)
-                t.start()
+                thread = threading.Thread(
+                    target=Sticky, args=(self, conn, addr, self.cfg))
+                lista.append(thread)
+                thread.start()
             except KeyboardInterrupt:
-                print "Closing by CTRL+C..."
+                print ("Closing by CTRL+C...")
                 break
             except StickyCloseError:
                 pass
-            except socket.error as (errno, msg):
-                if errno == 4:
-                    print "Closing by SIGTERM..."
+            except socket.error as error:
+                if error.args[0] == 4:
+                    print ("Closing by SIGTERM...")
                     break
                 else:
                     raise
-        for s in lista:
+        for thread in lista:
             try:
-                s.conn.close()
+                thread.conn.close()
             except:
                 pass
-            del s
+            del thread
         del lista
 
 
-        
 if __name__ == "__main__":
-    p = OptionParser(version="%prog " + __version__, 
-            usage="usage: %prog [options] [friend|pcname|address]")
+    parser = OptionParser(
+        version="%prog " + __version__,
+        usage="usage: %prog [options] [friend|pcname|address]")
     ehome = join(os.path.expanduser('~'), '.ete_pystickies')
-    p.description = "Silly program to receive and send Zhorn Software Stickies."\
-    "\n%prog supports completion for friend's names, where avaible "\
-    "(remember to use double quotes)."
-    p.add_option('-l', '--listen', dest='listen', action='store_true', 
-            default=False, help="Starts in listening mode to accept incoming "
-            "Stickies.")
-    p.add_option('-d', '--daemon', dest='daemon', action='store_true', 
-            default=False, help="Used with -listen starts %prog as daemon.")
-    p.add_option('-f', '--friends', dest='friends', action='store_true',
-            default=False, help="Ask for friends.")
-    p.add_option('-g', '--debug', dest='debug', action="store_true",
-            default=False, help="Writes some info to the log")
-    options, args = p.parse_args() 
+    parser.description = (
+        "Silly program to receive and send Zhorn Software Stickies."
+        "\n%prog supports completion for friend's names, where avaible "
+        "(remember to use double quotes).")
+    parser.add_option(
+        '-l',
+        '--listen',
+        dest='listen',
+        action='store_true',
+        default=False,
+        help="Starts in listening mode to accept incoming "
+        "Stickies.")
+    parser.add_option(
+        '-d',
+        '--daemon',
+        dest='daemon',
+        action='store_true',
+        default=False,
+        help="Used with -listen starts %prog as daemon.")
+    parser.add_option('-f', '--friends', dest='friends', action='store_true',
+                      default=False, help="Ask for friends.")
+    parser.add_option('-g', '--debug', dest='debug', action="store_true",
+                      default=False, help="Writes some info to the log")
+    options, args = parser.parse_args()
     cfg = Config(join(ehome, 'ete_pystickiesrc'))
     cfg.logfile = open(join(ehome, 'ete_pystickies.log'), "w+")
     cfg.friendsfile = join(ehome, "friends")
@@ -442,23 +449,25 @@ if __name__ == "__main__":
     cfg.optset(vars(options))
     if options.listen:
         os.sys.path.append(cfg.cwd)
-        if not 'In' in locals() and options.daemon:
-            dm = daemon.DaemonContext(working_directory=str(cfg.cwd),
-                    stdout=cfg.logfile, stderr=cfg.logfile)
-            dm.open()
+        if 'In' not in locals() and options.daemon:
+            dm_ = daemon.DaemonContext(
+                working_directory=str(cfg.cwd), stdout=cfg.logfile,
+                stderr=cfg.logfile)
+            dm_.open()
         StickiesListener(cfg)
-        print "Closed."
+        print ("Closed.")
     elif options.friends:
-        s = Sticky(None, None, None, cfg)
-        s.ask_for_friends()
-        del s
+        sticky = Sticky(None, None, None, cfg)
+        sticky.ask_for_friends()
+        del sticky
     else:
         if len(args):
-            ip = get_ip(args[0], cfg.friendsfile)
-            if ip:
-                s = Sticky(None, None, ip, cfg)
-                s.new()
+            ipadd = get_ip(args[0], cfg.friendsfile)
+            if ipadd:
+                cfg.dest_name = args[0]
+                sticky = Sticky(None, None, ipadd, cfg)
+                sticky.new()
             else:
-                print "pare non ci sia nessuno collegato per", args[0]
+                print ("it seems there no one are connected for", args[0])
     cfg.logfile.close()
     sys.exit(0)
