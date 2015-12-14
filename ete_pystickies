@@ -292,9 +292,15 @@ class Sticky(object):
             if self.cfg.rtf:
                 self.sticky.RTF = f.read().replace('\n', '\r')
             else:
-                self.sticky.RTF = r'{\rtf1'
-                self.sticky.RTF += s.replace("\n", "\\par\r") + "}"
-                self.sticky.TEXT = s.replace('\n', '\r')
+                text = []
+                for ttt in s.splitlines():
+                    if '\\' in ttt:
+                        ttt = ttt.encode('string-escape')
+                    text.append(ttt)
+                text = [t.encode('string-escape') for t in s.splitlines()]
+                # text = [t for t in s.splitlines()]
+                self.sticky.RTF = '{\\rtf1\\ansi\\ansicpg1252\\deff0\\deflang1040 %s}\r' % (
+                    '\\par\r'.join(text))
         data = ''
         # ok we will take the port where to send.
         port = int(self.sticky.PORT)
@@ -331,7 +337,6 @@ class Sticky(object):
         s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
         try:
             # serverip = get_ip(self.cfg.serverip, self.cfg.friendsfile)
-            # import ipdb; ipdb.set_trace()
             s.connect((self.cfg.serverip, self.cfg.serverport))
             s.send(data)
             s.close()
@@ -356,29 +361,27 @@ class Sticky(object):
         Open the temporary file and send it if there are some changes.
         """
         date = datetime.now()
-        fname = date.strftime("%Y%m%d-%H%M%S-" + cfg.dest_name.replace(
-            ' ', '-') + ".txt")
-        fname = os.path.join(cfg.home, fname)
-        # f = open()
-        # f = NamedTemporaryFile(delete=False)
-        # fname = f.name
+        if isinstance(self.cfg.dest_name, basestring):
+            dname = self.cfg.dest_name
+        else:
+            dname = self.cfg.dest_name[0]
+        fname = "{:%Y%m%d-%H%M%S}-{}.txt".format(date, dname.replace(' ', '-'))
+        fname = os.path.join(self.cfg.home, fname)
         if self.cfg.rtf:
             fcontent = self.sticky.RTF
         else:
             fcontent = self.sticky.TEXT
         # I'm not so sure if is this the right replacment.
-        fcontent = fcontent.replace(r'^M', '\n')
+        fcontent = fcontent.replace(r'^M', os.linesep)
         with open(fname, 'wb') as fobj:
             if ISP3:
                 fobj.write(bytes(fcontent, "utf-8"))
-                kcheck = binascii.crc32(bytes(open(fname).read(), 'utf-8'))
             else:
                 fobj.write(fcontent)
-                kcheck = binascii.crc32(open(fname).read())
+        mdate = os.path.getmtime(fname)
         check_output("%s %s" % (self.cfg.cmd, fname))
-        if binascii.crc32(open(fname, 'rb').read()) != kcheck:
+        if mdate != os.path.getmtime(fname):
             self.send(fname)
-        # os.unlink(fname)
         if self.conn:
             self.conn.close()
         self.closed = True
