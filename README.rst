@@ -15,7 +15,7 @@ the LAN using linux.
 
 System requirements
 ___________________
-Actually i have tested this thing only with Ubuntu 12.04 and Python 2.7.3.
+Actually i have tested this thing only with Ubuntu 12.04, 14.04 and Python 2.7.3, 2.7.6
 
 So i don't know if there are problems. 
 let me know.
@@ -130,4 +130,3 @@ _____
 
 You can put *ete_pystickies --listen* or *ete_pystickiesd* at the computer's
 startup.
-
