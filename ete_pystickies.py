@@ -56,6 +56,7 @@ RE_GETIP = '^(?P<id1>\d)\|(?P<id2>0)\|(?P<name>{})=' \
     '(?P<ip>.*)\|(?P<port>\d*)\|$'
 RE_GETNAME = r'^(?P<id1>\d)\|(?P<id2>0)\|(?P<name>.*)=' \
     r'(?P<ip>{})\|(?P<port>\d*)\|$'
+RE_RTF_STRIP = r'\{\*?\\[^{}]+}|[{}]|\\\n?[A-Za-z]+\n?(?:-?\d+)?[ ]?'
 
 
 def get_name(address, filename):
@@ -109,6 +110,9 @@ def get_ip(nome, filename):
 
 
 class StickyCloseError(Exception):
+    pass
+
+class StickyNoEditorError(Exception):
     pass
 
 
@@ -291,16 +295,16 @@ class Sticky(object):
                 s += "\n%s." % self.cfg.myname
             if self.cfg.rtf:
                 self.sticky.RTF = f.read().replace('\n', '\r')
+                self.sticky.TEXT = self.sticky.RTF
             else:
                 text = []
                 for ttt in s.splitlines():
                     if '\\' in ttt:
                         ttt = ttt.encode('string-escape')
                     text.append(ttt)
-                text = [t.encode('string-escape') for t in s.splitlines()]
-                # text = [t for t in s.splitlines()]
                 self.sticky.RTF = '{\\rtf1\\ansi\\ansicpg1252\\deff0\\deflang1040 %s}\r' % (
                     '\\par\r'.join(text))
+                self.sticky.TEXT = "\r".join(text)
         data = ''
         # ok we will take the port where to send.
         port = int(self.sticky.PORT)
@@ -472,10 +476,17 @@ if __name__ == "__main__":
         help="Used with -listen starts %prog as daemon.")
     parser.add_option('-f', '--friends', dest='friends', action='store_true',
                       default=False, help="Ask for friends.")
+    parser.add_option(
+        '-F', '--fserver', dest='ipfriends', metavar="IP",
+        help="Ask for friends to server.")
     parser.add_option('-g', '--debug', dest='debug', action="store_true",
                       default=False, help="Writes some info to the log")
     options, args = parser.parse_args()
     cfg = Config(join(ehome, 'ete_pystickiesrc'))
+    if not cfg.cmd:
+        print("You must setup you editor (cmd: option in your config file "
+            "{})".format(join(ehome, 'ete_pystickiesrc')))
+        sys.exit(1)
     cfg.logfile = open(join(ehome, 'ete_pystickies.log'), "w+")
     cfg.friendsfile = join(ehome, "friends")
     cfg.home = ehome
@@ -491,6 +502,11 @@ if __name__ == "__main__":
         StickiesListener(cfg)
         print ("Closed.")
     elif options.friends:
+        sticky = Sticky(None, None, None, cfg)
+        sticky.ask_for_friends()
+        del sticky
+    elif options.ipfriends:
+        cfg.serverip = options.ipfriends
         sticky = Sticky(None, None, None, cfg)
         sticky.ask_for_friends()
         del sticky
