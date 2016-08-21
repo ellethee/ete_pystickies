@@ -63,6 +63,9 @@ def get_name(address, filename):
     """
     Retrieve info by address.
     """
+    if not os.path.isfile(filename):
+        print ("Missing friends file {}".format(filename))
+        sys.exit(1)
     rawstr = RE_GETNAME.format(address)
     if ISP3:
         rawstr = bytes(rawstr, 'utf-8')
@@ -87,6 +90,9 @@ def get_ip(nome, filename):
     """
     Retrieve info by name
     """
+    if not os.path.isfile(filename):
+        print ("Missing friends file {}".format(filename))
+        sys.exit(1)
     rawstr = RE_GETIP.format(nome)
     if ISP3:
         rawstr = bytes(rawstr, 'utf-8')
