@@ -10,7 +10,7 @@ CONFIG_DIR="$HOME/.ete_pystickies"
 EXE_DIR="/opt/ete_pystickies"
 BIN_PATH="/usr/local/bin/ete_pystickies"
 CONFIG_FILE="$CONFIG_DIR/ete_pystickiesrc"
-AUTO_DIR=${XDG_CONFIG_HOME:-"~/.config/autostart"}
+AUTO_DIR=${XDG_CONFIG_HOME:-"$HOME/.config/autostart"}
 if [ -z "$EDITOR" ]; then
     if [ -e "$(which editor)" ]; then
         EDITOR=$(which editor)
@@ -25,6 +25,7 @@ sudo cp "$BASE_DIR/ete_pystickies.completion" "/etc/bash_completion.d/ete_pystic
 # user part
 [ ! -e "$CONFIG_DIR" ] && mkdir -p "$CONFIG_DIR"
 touch "$CONFIG_DIR/friends"
+[ $(grep -c "me=127.0.0.1" "$CONFIG_DIR/friends") = "0" ] && echo "2|0|me=127.0.0.1||" >> "$CONFIG_DIR/friends"
 cp "$BASE_DIR/ete_pystickies.desktop" "$AUTO_DIR/"
 if [ ! -e $CONFIG_FILE ]; then
     envsubst < "$BASE_DIR/ete_pystickiesrc.sample" > "$CONFIG_FILE"
