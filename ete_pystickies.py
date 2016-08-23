@@ -353,45 +353,58 @@ class Sticky(object):
         except Exception as error:
             print ("Cannot connect to the serever. %s" % str(error))
 
-    def new(self):
+    def new(self, msg=None):
         """
         Prepare for the new message.
         """
         self.sticky.W = self.cfg.witdh or 250
-        self.sticky.RTF = ''
-        self.sticky.TEXT = ''
+        self.sticky.RTF = msg
+        self.sticky.TEXT = msg
         self.sticky.TO = self.addr[1]
         self.sticky.HEIGHT = self.cfg.height or 200
         self.sticky.COL = self.cfg.col or "255,255,180"
         self.sticky.PORT = self.addr[2] or self.cfg.port
-        self.open()
+        fname = self.get_filename()
+        if msg:
+            filename = self.get_msgfile(content=msg)
+            self.send(filename)
+        else:
+            self.open()
 
-    def open(self):
-        """
-        Open the temporary file and send it if there are some changes.
-        """
+    def get_msgfile(self, content=''):
+        filename = self.get_filename()
+        with open(filename, 'wb') as fobj:
+            if ISP3:
+                fobj.write(bytes(content, "utf-8"))
+            else:
+                fobj.write(content)
+        return filename
+
+    def get_filename(self):
         date = datetime.now()
         if isinstance(self.cfg.dest_name, basestring):
             dname = self.cfg.dest_name
         else:
             dname = self.cfg.dest_name[0]
-        fname = "{:%Y%m%d-%H%M%S}-{}.txt".format(date, dname.replace(' ', '-'))
-        fname = os.path.join(self.cfg.home, fname)
+        filename = "{:%Y%m%d-%H%M%S}-{}.txt".format(date, dname.replace(' ', '-'))
+        filename = os.path.join(self.cfg.home, filename)
+        return filename
+
+    def open(self):
+        """
+        Open the temporary file and send it if there are some changes.
+        """
         if self.cfg.rtf:
-            fcontent = self.sticky.RTF
+            content = self.sticky.RTF
         else:
-            fcontent = self.sticky.TEXT
+            content = self.sticky.TEXT
         # I'm not so sure if is this the right replacment.
-        fcontent = fcontent.replace(r'^M', os.linesep)
-        with open(fname, 'wb') as fobj:
-            if ISP3:
-                fobj.write(bytes(fcontent, "utf-8"))
-            else:
-                fobj.write(fcontent)
-        mdate = os.path.getmtime(fname)
-        check_output("%s %s" % (self.cfg.cmd, fname))
-        if mdate != os.path.getmtime(fname):
-            self.send(fname)
+        content = content.replace(r'^M', os.linesep)
+        filename = self.get_msgfile(content=content)
+        mdate = os.path.getmtime(filename)
+        check_output("%s %s" % (self.cfg.cmd, filename))
+        if mdate != os.path.getmtime(filename):
+            self.send(filename)
         if self.conn:
             self.conn.close()
         self.closed = True
@@ -406,6 +419,7 @@ class StickiesListener(object):
         self.cfg = cfg
         self.socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
         self.socket.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
+        # self.socket.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEPORT, 1)
         self.socket.bind((self.cfg.host, self.cfg.port))
         self.socket.listen(1)
         signal.signal(signal.SIGTERM, self.close)
@@ -459,7 +473,7 @@ class StickiesListener(object):
 if __name__ == "__main__":
     parser = OptionParser(
         version="%prog " + __version__,
-        usage="usage: %prog [options] [friend|pcname|address]")
+        usage="usage: %prog [options] [friend|pcname|address] [message]")
     ehome = join(os.path.expanduser('~'), '.ete_pystickies')
     parser.description = (
         "Silly program to receive and send Zhorn Software Stickies."
@@ -473,6 +487,9 @@ if __name__ == "__main__":
         default=False,
         help="Starts in listening mode to accept incoming "
         "Stickies.")
+    parser.add_option(
+        '-p', '--port', type=int,
+        help="listen to PORT instead of the port specified in the rc file")
     parser.add_option(
         '-d',
         '--daemon',
@@ -505,6 +522,8 @@ if __name__ == "__main__":
                 working_directory=str(cfg.cwd), stdout=cfg.logfile,
                 stderr=cfg.logfile)
             dm_.open()
+        if options.port:
+            cfg.port = options.port
         StickiesListener(cfg)
         print ("Closed.")
     elif options.friends:
@@ -519,11 +538,14 @@ if __name__ == "__main__":
     else:
         if len(args):
             ipadd = get_ip(args[0], cfg.friendsfile)
+
             if ipadd:
                 cfg.dest_name = args[0]
                 sticky = Sticky(None, None, ipadd, cfg)
-                sticky.new()
+                sticky.new(" ".join(args[1:]))
             else:
                 print ("it seems there no one are connected for", args[0])
+        else:
+            print ("Needs a friend or in ip address")
     cfg.logfile.close()
     sys.exit(0)
