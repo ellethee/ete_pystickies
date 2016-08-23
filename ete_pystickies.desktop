@@ -1,0 +1,5 @@
+[Desktop Entry]
+Type=Application
+Exec=/usr/local/bin/ete_pystickies -l
+Name=EtePyStickies
+Comment=My Stikies

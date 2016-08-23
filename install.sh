@@ -10,6 +10,7 @@ CONFIG_DIR="$HOME/.ete_pystickies"
 EXE_DIR="/opt/ete_pystickies"
 BIN_PATH="/usr/local/bin/ete_pystickies"
 CONFIG_FILE="$CONFIG_DIR/ete_pystickiesrc"
+AUTO_DIR=${XDG_CONFIG_HOME:-"~/.config/autostart"}
 if [ -z "$EDITOR" ]; then
     if [ -e "$(which editor)" ]; then
         EDITOR=$(which editor)
@@ -23,17 +24,18 @@ sudo ln -s "$EXE_DIR/ete_pystickies.py" "$BIN_PATH"
 sudo cp "$BASE_DIR/ete_pystickies.completion" "/etc/bash_completion.d/ete_pystickies"
 # user part
 [ ! -e "$CONFIG_DIR" ] && mkdir -p "$CONFIG_DIR"
+touch "$CONFIG_DIR/friends"
+cp "$BASE_DIR/ete_pystickies.desktop" "$AUTO_DIR/"
 if [ ! -e $CONFIG_FILE ]; then
     envsubst < "$BASE_DIR/ete_pystickiesrc.sample" > "$CONFIG_FILE"
-    touch "$CONFIG_DIR/friends"
 cat << FINE
     ####
     # Remember to edit your config $CONFIG_FILE and your friends $CONFIG_DIR/friends.
-    # Or try to creaete it by configuring the serverip option in your config 
+    # Or try to creaete it by configuring the serverip option in your config
     # and launching ete_pystickies -f
     ###
 FINE
-    echo -e 
+    echo -e
     if [ ! -z $EDITOR ]; then
         $EDITOR "$CONFIG_FILE"
     fi
