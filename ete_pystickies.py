@@ -507,7 +507,7 @@ if __name__ == "__main__":
     options, args = parser.parse_args()
     cfg = Config(join(ehome, 'ete_pystickiesrc'))
     if not cfg.cmd:
-        print("You must setup you editor (cmd: option in your config file "
+        print("You must setup your editor (cmd: option in your config file "
             "{})".format(join(ehome, 'ete_pystickiesrc')))
         sys.exit(1)
     cfg.logfile = open(join(ehome, 'ete_pystickies.log'), "w+")
