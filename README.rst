@@ -69,7 +69,7 @@ The IP of the machine where to retrieve the friends list.
 The port for the above machine (default is 52673).
 
 **cmd**
-The program you want to use to edit messages (ex. gedit).
+The program you want to use to edit messages, should be the full path (ex. /usr/bin/gedit).
 
 **rtf True|False**
 Indicates that the program that you're using is capable to read rtf format.
