@@ -8,11 +8,25 @@
     license: GNU General Public License (GPL) 2.0
     (http://www.gnu.org/licenses/gpl-2.0.html)
 """
-__file_name__ = "ete_pystickies.py"
-__author__ = "Luca Zaccaria <luca.vs800@hotmail.it>"
-__version__ = "1.1.3"
-__date__ = "2012-06-13"
-
+from __future__ import print_function
+import os
+from os.path import join
+import sys
+import socket
+import re
+import struct
+import threading
+import signal
+from subprocess import call
+import subprocess
+from datetime import datetime
+from optparse import OptionParser
+import shlex
+import daemon
+import yaml
+import notify2
+__author__ = "ellethee <luca800@gmail.com>"
+__version__ = "1.1.5"
 
 # some python3 hacks
 try:
@@ -31,25 +45,6 @@ else:
     # unicode = unicode
     # bytes = str
     basestring = basestring
-
-import os
-import sys
-from os.path import join
-import socket
-import binascii
-import re
-import struct
-# from tempfile import NamedTemporaryFile
-import threading
-import signal
-from subprocess import call
-import daemon
-import subprocess
-import shlex
-import yaml
-from datetime import datetime
-from optparse import OptionParser
-
 STD_PORT = 52673
 REC = re.compile(r'^(\w+)=(.*)', re.MULTILINE)
 RE_GETIP = '^(?P<id1>\d)\|(?P<id2>0)\|(?P<name>{})=' \
@@ -118,6 +113,7 @@ def get_ip(nome, filename):
 class StickyCloseError(Exception):
     pass
 
+
 class StickyNoEditorError(Exception):
     pass
 
@@ -128,8 +124,7 @@ def check_output(command):
     """
     if isinstance(command, basestring):
         command = shlex.split(command)
-    p = subprocess.Popen(command, stdout=subprocess.PIPE,
-                         stderr=subprocess.PIPE)
+    p = subprocess.Popen(command, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
     out, err = p.communicate()
     return out
 
@@ -259,12 +254,11 @@ class Sticky(object):
             name = name[0]
         self.cfg.dest_name = name
         # Let's try to advise the user via notify-send.
-        try:
-            call(["notify-send", "-u", "normal",
-                  "EtePyStickies: message from %s\n" % name,
-                  self.sticky.TEXT.replace('\r', '')[:50]])
-        except:
-            pass
+        note = notify2.Notification(
+            "EtePyStickies: message from {}".format(name),
+            self.sticky.TEXT.replace('\n', '\r')[:50],
+            'document-send')
+        note.show()
         # And call the action if there is one.
         if self.action:
             self.action()
@@ -280,6 +274,7 @@ class Sticky(object):
             lst = REC.findall(self.data)
             self.sequenza = [l[0] for l in lst]
             self.sticky = EteDumbObj(lst)
+            self.sticky.TEXT = self.sticky.TEXT.replace(r'^M', '\n')
             self.action = self.open
         elif self.command == 'send':
             # TODO: i have to implement this.
@@ -386,7 +381,8 @@ class Sticky(object):
             dname = self.cfg.dest_name
         else:
             dname = self.cfg.dest_name[0]
-        filename = "{:%Y%m%d-%H%M%S}-{}.txt".format(date, dname.replace(' ', '-'))
+        filename = "{:%Y%m%d-%H%M%S}-{}.{}".format(
+            date, dname.replace(' ', '-'),('rtf' if self.cfg.rtf else 'txt'))
         filename = os.path.join(self.cfg.home, filename)
         return filename
 
@@ -399,7 +395,7 @@ class Sticky(object):
         else:
             content = self.sticky.TEXT
         # I'm not so sure if is this the right replacment.
-        content = content.replace(r'^M', os.linesep)
+        content = content.replace(r'^M', '\n')
         filename = self.get_msgfile(content=content)
         mdate = os.path.getmtime(filename)
         check_output("%s %s" % (self.cfg.cmd, filename))
@@ -423,17 +419,20 @@ class StickiesListener(object):
         self.socket.bind((self.cfg.host, self.cfg.port))
         self.socket.listen(1)
         signal.signal(signal.SIGTERM, self.close)
+        notify2.init('EtePyStickies')
         self.listen()
 
-    def close(self, sig, frame=None):
+    def close(self, sig=None, frame=None):
         """
         Avoid the closing of the listener if there are some ope threads.
         """
         count = threading.active_count()
         if count > 1:
-            call(["notify-send", "-u", "critical", "Ete PyStickies",
-                  "Non posso uscire ci sono ancora %s messaggi aperti." %
-                  (count - 1)])
+            notify2.Notification(
+                'Messages open',
+                "I can not close there are still {} open messages.".format(
+                    count - 1),
+                'error').show()
             raise StickyCloseError
 
     def listen(self):
@@ -452,7 +451,11 @@ class StickiesListener(object):
                 thread.start()
             except KeyboardInterrupt:
                 print ("Closing by CTRL+C...")
-                break
+                try:
+                    self.close()
+                    break
+                except StickyCloseError:
+                    pass
             except StickyCloseError:
                 pass
             except socket.error as error:
@@ -508,7 +511,7 @@ if __name__ == "__main__":
     cfg = Config(join(ehome, 'ete_pystickiesrc'))
     if not cfg.cmd:
         print("You must setup your editor (cmd: option in your config file "
-            "{})".format(join(ehome, 'ete_pystickiesrc')))
+              "{})".format(join(ehome, 'ete_pystickiesrc')))
         sys.exit(1)
     cfg.logfile = open(join(ehome, 'ete_pystickies.log'), "w+")
     cfg.friendsfile = join(ehome, "friends")
