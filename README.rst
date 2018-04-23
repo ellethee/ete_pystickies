@@ -24,7 +24,8 @@ let me know.
 
 Dependencies
 ____________
-As i remember only python-daemon (http://pypi.python.org/pypi/python-daemon/)
+As i remember only python-daemon (http://pypi.python.org/pypi/python-daemon/),
+notofy2 (https://pypi.org/project/notify2/) 
 and pyyaml is (https://pypi.python.org/pypi/PyYAML/)
 are needed all other modules should be in the standard library.
 
