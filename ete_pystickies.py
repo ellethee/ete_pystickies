@@ -26,7 +26,7 @@ import daemon
 import yaml
 import notify2
 __author__ = "ellethee <luca800@gmail.com>"
-__version__ = "1.1.5"
+__version__ = "1.1.6"
 
 # some python3 hacks
 try:
@@ -124,7 +124,8 @@ def check_output(command):
     """
     if isinstance(command, basestring):
         command = shlex.split(command)
-    p = subprocess.Popen(command, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+    p = subprocess.Popen(command, stdout=subprocess.PIPE,
+                         stderr=subprocess.PIPE)
     out, err = p.communicate()
     return out
 
@@ -165,13 +166,32 @@ class Config(EteDumbObj):
     def __init__(self, *args, **kwargs):
         self.__dict__['_filename'] = None
         if len(args) == 1 and isinstance(args[0], basestring):
-            filename = args[0]
-            if not os.path.exists(filename):
-                in_file = open(filename, "wb")
-                in_file.close()
-            self._filename = filename
-            with open(self._filename, "rb") as f:
-                EteDumbObj.__init__(self, yaml.load(f.read()))
+            self._filename = args[0]
+            if not os.path.exists(self._filename):
+                EteDumbObj.__init__(self, {
+                    'myname': os.path.expandvars('$USER'),
+                    'signit': True,
+                    'host': '',
+                    'port': 52673,
+                    'serverip': '127.0.0.1',
+                    'serverport': 52673,
+                    'rtf': False,
+                    'cmd': os.path.expandvars('$EDITOR'),
+                    'width': 250,
+                    'height': 200,
+                    'col': '255,255,180',
+                })
+                self.save(self._filename)
+                print("{} not found! I will create one with the default "
+                      "settings.\n please check the "
+                      "file.".format(self._filename))
+            else:
+                with open(self._filename, "rb") as f:
+                    try:
+                        EteDumbObj.__init__(self, yaml.load(f.read()))
+                    except:
+                        print("I had a problem reading the configuration file {}.\n"
+                              "Please check the file.".format(self._filename))
         else:
             EteDumbObj.__init__(self, *args, **kwargs)
 
@@ -382,7 +402,7 @@ class Sticky(object):
         else:
             dname = self.cfg.dest_name[0]
         filename = "{:%Y%m%d-%H%M%S}-{}.{}".format(
-            date, dname.replace(' ', '-'),('rtf' if self.cfg.rtf else 'txt'))
+            date, dname.replace(' ', '-'), ('rtf' if self.cfg.rtf else 'txt'))
         filename = os.path.join(self.cfg.home, filename)
         return filename
 
